@@ -3,274 +3,241 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Acoustic File Transfer Modem</title>
+    <title>Acoustic True-Color Image Transfer</title>
     <style>
         :root {
-            --bg-color: #0d1117;
-            --panel-bg: #161b22;
-            --text-color: #c9d1d9;
-            --accent: #58a6ff;
-            --success: #3fb950;
+            --bg: #111;
+            --panel: #1a1a1a;
+            --text: #eee;
+            --accent: #ff4081;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
         }
-        h1 { color: var(--accent); margin-bottom: 5px; text-align: center; }
-        p { color: #8b949e; margin-bottom: 30px; text-align: center; }
-        .container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            max-width: 900px;
-            width: 100%;
-            justify-content: center;
-        }
+        h1 { margin-top: 0; color: var(--accent); text-align: center; }
+        .instructions { max-width: 700px; text-align: center; color: #aaa; margin-bottom: 20px; font-size: 0.95em; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; width: 100%; max-width: 1000px; justify-content: center; }
         .panel {
-            background-color: var(--panel-bg);
-            border: 1px solid #30363d;
-            border-radius: 12px;
-            padding: 25px;
-            flex: 1;
-            min-width: 320px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            background: var(--panel); border-radius: 12px; padding: 20px; flex: 1; min-width: 320px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6); border: 1px solid #333; display: flex; flex-direction: column; gap: 15px;
         }
-        h2 { margin-top: 0; border-bottom: 1px solid #30363d; padding-bottom: 10px; font-size: 1.2rem; }
-        input[type="file"] { background: #0d1117; padding: 10px; border-radius: 6px; border: 1px solid #30363d; color: white;}
+        h2 { margin: 0 0 10px 0; border-bottom: 2px solid #333; padding-bottom: 10px; font-size: 1.2rem; }
+        input[type="file"] { background: #222; padding: 10px; border-radius: 6px; border: 1px solid #444; color: white; width: 100%; box-sizing: border-box; }
         button {
-            background-color: var(--accent);
-            color: #ffffff;
-            border: none;
-            padding: 14px;
-            font-size: 16px;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: 0.2s;
+            background: var(--accent); color: white; border: none; padding: 14px; font-size: 16px;
+            font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s;
         }
-        button:hover { filter: brightness(1.2); }
-        button:disabled { background-color: #21262d; color: #484f58; cursor: not-allowed; }
-        img.preview {
-            max-width: 100%;
-            border-radius: 8px;
-            border: 2px dashed #30363d;
-            min-height: 150px;
-            object-fit: contain;
-            background: #000;
-        }
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background-color: #21262d;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-        }
-        .progress-fill {
-            height: 100%;
-            background-color: var(--success);
-            width: 0%;
-            transition: width 0.3s;
-        }
-        .status {
-            font-family: "Courier New", Courier, monospace;
-            background: #0d1117;
-            padding: 12px;
-            border-radius: 6px;
-            border: 1px solid #30363d;
-            color: var(--success);
-            font-size: 0.9rem;
-            min-height: 20px;
-            word-wrap: break-word;
-        }
-        .warning { background: rgba(255, 165, 0, 0.1); border-left: 4px solid orange; padding: 10px; font-size: 0.85rem; }
+        button:hover { background: #ff70a1; }
+        button:disabled { background: #444; color: #888; cursor: not-allowed; }
+        canvas { width: 100%; background: #000; border-radius: 6px; border: 2px solid #333; image-rendering: pixelated; }
+        .controls { display: flex; flex-direction: column; gap: 10px; background: #222; padding: 15px; border-radius: 8px; border: 1px solid #444; }
+        .slider-group { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .slider-group label { font-size: 0.9em; color: #ccc; width: 100px; }
+        input[type="range"] { flex: 1; }
+        .status { text-align: center; font-family: monospace; color: var(--accent); padding: 5px; }
+        .badge { display: inline-block; background: #333; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <h1>Acoustic File Transfer</h1>
-    <p>Converts an image into raw binary data and transmits it via sound. True color, pixel-perfect.</p>
+    <h1>Acoustic Color Transfer</h1>
+    <div class="instructions">
+        Sends True-Color RGB images over sound using a Harmonic-Free Octave (5kHz - 10kHz).<br>
+        <b>Tip:</b> If the image is noisy, use the receiver sliders to tune out room static!
+    </div>
 
     <div class="container">
-        <!-- RECEIVER -->
+        <!-- RECEIVER PANEL -->
         <div class="panel" id="receiverPanel">
-            <h2>📡 1. Receiver (Start Here)</h2>
-            <div class="warning">Click below and allow Microphone access first.</div>
-            <button id="listenBtn">Start Listening</button>
-            <div class="status" id="rxStatus">Ready...</div>
-            <div class="progress-bar"><div class="progress-fill" id="rxProgress"></div></div>
-            <img id="rxImg" class="preview" alt="Received image will appear here">
+            <h2>📡 1. Receiver</h2>
+            <div class="badge">Listen on Device 1</div>
+            
+            <button id="listenBtn">🎤 Start Listening</button>
+            <button id="clearBtn" style="background: #444;">Clear Screen</button>
+            
+            <div class="controls">
+                <div class="slider-group">
+                    <label>Noise Floor</label>
+                    <input type="range" id="noiseSlider" min="-110" max="-40" value="-80">
+                </div>
+                <div class="slider-group">
+                    <label>Brightness</label>
+                    <input type="range" id="gainSlider" min="1" max="8" step="0.1" value="3.5">
+                </div>
+            </div>
+
+            <canvas id="rxCanvas" width="600" height="64" style="height: 150px;"></canvas>
+            <div class="status" id="rxStatus">Status: Inactive</div>
         </div>
 
-        <!-- SENDER -->
+        <!-- SENDER PANEL -->
         <div class="panel" id="senderPanel">
             <h2>🔊 2. Sender</h2>
-            <div class="warning">Upload image. It will be compressed to ~1.5KB to transfer in ~35 seconds. Turn volume UP!</div>
+            <div class="badge">Upload & Play on Device 2</div>
+            
             <input type="file" id="imageInput" accept="image/*">
-            <img id="txImg" class="preview" alt="Image preview">
-            <div class="status" id="txStatus">Waiting for image...</div>
-            <button id="playBtn" disabled>Send via Audio</button>
+            <canvas id="txCanvas" height="64" style="height: 150px;"></canvas>
+            
+            <button id="playBtn" disabled>▶ Generate & Send Audio</button>
+            <div class="status" id="txStatus">Status: Waiting for image</div>
         </div>
     </div>
 
     <script>
-        // --- MODEM PROTOCOL CONFIG ---
-        const FRAME_DUR = 0.05; // 50ms per frame
-        const FREQS = [
-            2000, 2300, 2600, 2900, 3200, 3500, 3800, 4100, 4400, 4700, 5000, 5300, // Bits 0-11
-            5600, 5900, 6200, 6500, // Seq bits 0-3
-            7000, 7500 // Sync A, Sync B
-        ];
-        const MAGIC = [1,0,1,0,1,0,1,0, 0,1,0,1,0,1,0,1]; // 0x55, 0xAA (LSB first)
+        // --- ADVANCED ACOUSTIC SETTINGS ---
+        // Squeezing all frequencies between 5kHz and 10kHz entirely eliminates
+        // the 1st, 2nd, and 3rd harmonic distortions caused by cheap phone speakers!
+        const NUM_PIXELS = 64;       // Vertical image resolution
+        const COL_DUR = 0.05;        // 50ms per column (Slower = cleaner signal)
+        
+        // FDM (Frequency Division Multiplexing) Bands
+        const FREQ_STEP = 25;        // 25 Hz spacing per pixel
+        const R_START = 5000;        // Red band: 5000 - 6575 Hz
+        const G_START = 6700;        // Green band: 6700 - 8275 Hz
+        const B_START = 8400;        // Blue band: 8400 - 9975 Hz
 
         // --- SENDER LOGIC ---
-        let payloadBytes = null;
+        const txCanvas = document.getElementById('txCanvas');
+        const txCtx = txCanvas.getContext('2d', { willReadFrequently: true });
+        let imgPixels = null;
+        let imgWidth = 0;
         let txAudioCtx;
 
-        document.getElementById('imageInput').addEventListener('change', async (e) => {
+        document.getElementById('imageInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-
-            document.getElementById('txStatus').innerText = "Compressing image...";
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            await new Promise(r => img.onload = r);
-
-            // Compress heavily so it fits over slow audio
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Auto scale until file is < 1500 bytes (approx 30s transfer)
-            let w = 120;
-            let q = 0.4;
-            let blob;
-            
-            do {
-                canvas.width = w;
-                canvas.height = Math.round(w * (img.height / img.width));
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', q));
-                w -= 10;
-                q -= 0.05;
-            } while (blob.size > 1500 && w > 40);
-
-            payloadBytes = new Uint8Array(await blob.arrayBuffer());
-            
-            // Show preview of compressed image
-            document.getElementById('txImg').src = URL.createObjectURL(blob);
-            document.getElementById('txStatus').innerText = `Compressed to ${payloadBytes.length} bytes. Ready.`;
-            document.getElementById('playBtn').disabled = false;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Resize image to fixed height (64px) for perfect frequency mapping
+                    const aspect = img.width / img.height;
+                    imgWidth = Math.min(250, Math.round(NUM_PIXELS * aspect)); 
+                    txCanvas.width = imgWidth;
+                    
+                    txCtx.drawImage(img, 0, 0, imgWidth, NUM_PIXELS);
+                    const idata = txCtx.getImageData(0, 0, imgWidth, NUM_PIXELS).data;
+                    
+                    // Parse RGB pixel data (normalize to 0.0 - 1.0)
+                    imgPixels = [];
+                    for(let x = 0; x < imgWidth; x++) {
+                        imgPixels[x] = [];
+                        for(let y = 0; y < NUM_PIXELS; y++) {
+                            let idx = (y * imgWidth + x) * 4;
+                            imgPixels[x][y] = {
+                                r: idata[idx] / 255.0,
+                                g: idata[idx+1] / 255.0,
+                                b: idata[idx+2] / 255.0
+                            };
+                        }
+                    }
+                    document.getElementById('playBtn').disabled = false;
+                    document.getElementById('txStatus').innerText = `Image Ready (${imgWidth}x${NUM_PIXELS})`;
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
         });
 
         document.getElementById('playBtn').addEventListener('click', async () => {
+            if (!imgPixels) return;
+            
             if (!txAudioCtx) txAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (txAudioCtx.state === 'suspended') await txAudioCtx.resume();
 
             document.getElementById('playBtn').disabled = true;
-            document.getElementById('txStatus').innerText = "Generating sound buffer... (Wait)";
+            document.getElementById('txStatus').innerText = "Generating complex audio waveform...";
 
             setTimeout(() => {
-                let bitStream = [];
-                // 1. Add Preamble (allows receiver mic to auto-adjust and lock on)
-                for(let i=0; i<200; i++) bitStream.push(0);
-
-                // 2. Add Header (0x55, 0xAA)
-                addByte(0x55, bitStream);
-                addByte(0xAA, bitStream);
-
-                // 3. Add Length (16 bits)
-                addByte(payloadBytes.length & 0xFF, bitStream);
-                addByte((payloadBytes.length >> 8) & 0xFF, bitStream);
-
-                // 4. Add Payload
-                for(let b of payloadBytes) addByte(b, bitStream);
-
-                // Pad to 12-bit word boundary
-                while(bitStream.length % 12 !== 0) bitStream.push(0);
-                
-                // Add Postamble
-                for(let i=0; i<36; i++) bitStream.push(0);
-
-                // Generate Audio
                 const S_RATE = txAudioCtx.sampleRate;
-                const frames = bitStream.length / 12;
-                const buffer = txAudioCtx.createBuffer(1, frames * FRAME_DUR * S_RATE, S_RATE);
+                const totalDur = (imgWidth * COL_DUR);
+                const buffer = txAudioCtx.createBuffer(1, totalDur * S_RATE, S_RATE);
                 const data = buffer.getChannelData(0);
 
-                let phases = new Float32Array(FREQS.length);
-                let omegas = new Float32Array(FREQS.length);
-                for(let i=0; i<FREQS.length; i++) omegas[i] = 2 * Math.PI * FREQS[i] / S_RATE;
+                // Precalculate exactly 192 frequencies (64 per color)
+                let omegasR = new Float32Array(NUM_PIXELS);
+                let omegasG = new Float32Array(NUM_PIXELS);
+                let omegasB = new Float32Array(NUM_PIXELS);
+                
+                for(let y = 0; y < NUM_PIXELS; y++) {
+                    // Map physical Y (0 is top) to frequencies. Top = High freq, Bottom = Low freq
+                    let step = (NUM_PIXELS - 1 - y) * FREQ_STEP;
+                    omegasR[y] = 2 * Math.PI * (R_START + step) / S_RATE;
+                    omegasG[y] = 2 * Math.PI * (G_START + step) / S_RATE;
+                    omegasB[y] = 2 * Math.PI * (B_START + step) / S_RATE;
+                }
 
-                for(let f=0; f<frames; f++) {
-                    let isA = (f % 2 === 0);
-                    let seq = f % 16;
+                let phasesR = new Float32Array(NUM_PIXELS);
+                let phasesG = new Float32Array(NUM_PIXELS);
+                let phasesB = new Float32Array(NUM_PIXELS);
+
+                // Build Spectrogram Waveform
+                for(let x = 0; x < imgWidth; x++) {
+                    let idxStart = Math.floor(x * COL_DUR * S_RATE);
+                    let idxEnd = Math.floor((x + 1) * COL_DUR * S_RATE);
                     
-                    let active = [];
-                    for(let b=0; b<12; b++) if (bitStream[f*12 + b]) active.push(b); // Data
-                    for(let b=0; b<4; b++) if ((seq >> b) & 1) active.push(12 + b);  // Seq
-                    active.push(isA ? 16 : 17); // Sync A or B
+                    for(let y = 0; y < NUM_PIXELS; y++) {
+                        let px = imgPixels[x][y];
+                        
+                        // Equalization: High frequencies get naturally absorbed by air.
+                        // We apply a slight power boost to the higher bands (B and G) to compensate.
+                        let rAmp = px.r;
+                        let gAmp = px.g * 1.2; 
+                        let bAmp = px.b * 1.5; 
 
-                    let startIdx = Math.floor(f * FRAME_DUR * S_RATE);
-                    let endIdx = Math.floor((f+1) * FRAME_DUR * S_RATE);
-                    let len = endIdx - startIdx;
-                    let fade = Math.floor(0.002 * S_RATE);
+                        let pR = phasesR[y], pG = phasesG[y], pB = phasesB[y];
+                        let wR = omegasR[y], wG = omegasG[y], wB = omegasB[y];
 
-                    for(let i=startIdx; i<endIdx; i++) {
-                        let local = i - startIdx;
-                        let env = 1.0;
-                        if (local < fade) env = local / fade;
-                        else if (local > len - fade) env = (len - local) / fade;
-
-                        let val = 0;
-                        for(let act of active) {
-                            val += Math.sin(phases[act]);
-                            phases[act] += omegas[act];
+                        for(let i = idxStart; i < idxEnd; i++) {
+                            let sample = 0;
+                            if (rAmp > 0.05) sample += rAmp * Math.sin(pR);
+                            if (gAmp > 0.05) sample += gAmp * Math.sin(pG);
+                            if (bAmp > 0.05) sample += bAmp * Math.sin(pB);
+                            
+                            data[i] += sample;
+                            pR += wR; pG += wG; pB += wB;
                         }
-                        data[i] = val * env;
+                        phasesR[y] = pR; phasesG[y] = pG; phasesB[y] = pB;
                     }
                 }
 
-                // Normalize volume
-                let maxVal = 0;
-                for(let i=0; i<data.length; i++) if(Math.abs(data[i]) > maxVal) maxVal = Math.abs(data[i]);
-                for(let i=0; i<data.length; i++) data[i] = (data[i] / maxVal) * 0.9;
+                // Master Volume Normalization (Prevent distortion/clipping)
+                let maxAmp = 0;
+                for(let i = 0; i < data.length; i++) {
+                    if (Math.abs(data[i]) > maxAmp) maxAmp = Math.abs(data[i]);
+                }
+                if (maxAmp > 0) {
+                    for(let i = 0; i < data.length; i++) data[i] = (data[i] / maxAmp) * 0.9;
+                }
 
+                document.getElementById('txStatus').innerText = "🔊 Sending! Turn volume to 80%";
+                
                 const source = txAudioCtx.createBufferSource();
                 source.buffer = buffer;
                 source.connect(txAudioCtx.destination);
                 source.onended = () => {
                     document.getElementById('playBtn').disabled = false;
-                    document.getElementById('txStatus').innerText = "Transfer Complete!";
+                    document.getElementById('txStatus').innerText = "Transfer Complete.";
                 };
                 source.start();
-                document.getElementById('txStatus').innerText = "Transmitting... KEEP VOLUME MAXED.";
             }, 100);
         });
 
-        function addByte(b, stream) {
-            for(let i=0; i<8; i++) stream.push((b >> i) & 1);
-        }
-
         // --- RECEIVER LOGIC ---
         let rxAudioCtx, analyser, dataArray;
-        let rxBitBuffer = [];
-        let headerFound = false;
-        let rxPayloadLen = 0;
-        let rxPayloadStart = 0;
-        
-        let currentClock = null;
-        let bestRead = null;
-        let maxSyncVol = -999;
-        let lastSeq = -1;
+        const rxCanvas = document.getElementById('rxCanvas');
+        const rxCtx = rxCanvas.getContext('2d');
+        rxCtx.fillStyle = "black";
+        rxCtx.fillRect(0, 0, rxCanvas.width, rxCanvas.height);
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            rxCtx.fillStyle = "black";
+            rxCtx.fillRect(0, 0, rxCanvas.width, rxCanvas.height);
+        });
 
         document.getElementById('listenBtn').addEventListener('click', async () => {
             try {
@@ -279,124 +246,81 @@
                 });
                 
                 rxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const source = rxAudioCtx.createMediaStreamSource(stream);
+                
+                // Huge FFT size for extreme frequency separation precision
                 analyser = rxAudioCtx.createAnalyser();
-                analyser.fftSize = 1024; // ~23ms window. Fits cleanly inside 50ms frame.
-                analyser.smoothingTimeConstant = 0;
-                rxAudioCtx.createMediaStreamSource(stream).connect(analyser);
+                analyser.fftSize = 8192; 
+                analyser.smoothingTimeConstant = 0.0; // Raw real-time data
+                source.connect(analyser);
 
                 dataArray = new Float32Array(analyser.frequencyBinCount);
-                
+
                 document.getElementById('listenBtn').disabled = true;
-                document.getElementById('rxStatus').innerText = "Listening for signal...";
-                requestAnimationFrame(rxLoop);
+                document.getElementById('rxStatus').innerText = "Listening... Adjust sliders if needed.";
+
+                requestAnimationFrame(drawSpectrogram);
             } catch(e) {
-                alert("Microphone Error: " + e.message);
+                alert("Microphone access is required. Error: " + e.message);
             }
         });
 
-        function rxLoop() {
-            requestAnimationFrame(rxLoop);
+        let lastDrawTime = 0;
+
+        function drawSpectrogram(timestamp) {
+            requestAnimationFrame(drawSpectrogram);
+
             if (!analyser) return;
+
+            // Strict Timing: Only draw a pixel column every 50ms to perfectly match the sender
+            if (timestamp - lastDrawTime < (COL_DUR * 1000)) return;
+            lastDrawTime = timestamp;
+
             analyser.getFloatFrequencyData(dataArray);
 
             const S_RATE = rxAudioCtx.sampleRate;
             const binWidth = S_RATE / analyser.fftSize;
+
+            // Shift canvas left
+            const oldData = rxCtx.getImageData(1, 0, rxCanvas.width - 1, NUM_PIXELS);
+            rxCtx.putImageData(oldData, 0, 0);
+
+            // Create new right-most column
+            let newCol = rxCtx.createImageData(1, NUM_PIXELS);
             
-            let getVol = (freq) => dataArray[Math.round(freq / binWidth)];
+            // Get live slider values
+            const minDb = parseFloat(document.getElementById('noiseSlider').value);
+            const gain = parseFloat(document.getElementById('gainSlider').value);
+            const dbRange = 100 / gain; // How many decibels represent full brightness
 
-            let volA = getVol(7000);
-            let volB = getVol(7500);
-
-            let dominantClock = null;
-            let syncVol = -999;
-            if (volA > volB + 6 && volA > -60) { dominantClock = 'A'; syncVol = volA; }
-            if (volB > volA + 6 && volB > -60) { dominantClock = 'B'; syncVol = volB; }
-
-            // Clock transitioned! Process the best reading from the previous clock phase
-            if (dominantClock && dominantClock !== currentClock) {
-                if (bestRead) {
-                    let seq = bestRead.seq;
-                    let word = bestRead.word;
-
-                    if (lastSeq !== -1) {
-                        let diff = (seq - lastSeq + 16) % 16;
-                        if (diff > 1) {
-                            // We missed frames due to a dropout. Pad with zeros to keep file structure.
-                            for(let i=0; i < (diff - 1) * 12; i++) rxBitBuffer.push(0);
-                        }
-                    }
-                    
-                    if (seq !== lastSeq) {
-                        for(let b=0; b<12; b++) rxBitBuffer.push((word >> b) & 1);
-                        lastSeq = seq;
-                        processBuffer();
-                    }
-                }
-                currentClock = dominantClock;
-                maxSyncVol = -999;
-                bestRead = null;
-            }
-
-            // During current clock era, find the clearest FFT snapshot
-            if (dominantClock === currentClock && syncVol > maxSyncVol) {
-                maxSyncVol = syncVol;
-                let threshold = syncVol - 15; // 15 dB drop means 0
+            for(let y = 0; y < NUM_PIXELS; y++) {
+                let step = (NUM_PIXELS - 1 - y) * FREQ_STEP;
                 
-                let word = 0;
-                for(let b=0; b<12; b++) if (getVol(FREQS[b]) > threshold) word |= (1 << b);
-                
-                let seq = 0;
-                for(let b=0; b<4; b++) if (getVol(FREQS[12+b]) > threshold) seq |= (1 << b);
+                let freqR = R_START + step;
+                let freqG = G_START + step;
+                let freqB = B_START + step;
 
-                bestRead = { word, seq };
-            }
-        }
+                // Find the exact math bin for these frequencies
+                let binR = Math.round(freqR / binWidth);
+                let binG = Math.round(freqG / binWidth);
+                let binB = Math.round(freqB / binWidth);
 
-        function processBuffer() {
-            if (!headerFound) {
-                // Search for Magic Bytes
-                for(let i=0; i <= rxBitBuffer.length - MAGIC.length - 16; i++) {
-                    let match = true;
-                    for(let j=0; j<MAGIC.length; j++) {
-                        if(rxBitBuffer[i+j] !== MAGIC[j]) { match=false; break; }
-                    }
-                    if (match) {
-                        let len = 0;
-                        for(let b=0; b<16; b++) len |= (rxBitBuffer[i + 16 + b] << b);
-                        if (len > 0 && len < 10000) {
-                            headerFound = true;
-                            rxPayloadLen = len;
-                            rxPayloadStart = i + 32;
-                            document.getElementById('rxStatus').innerText = `Header found! Receiving ${len} bytes...`;
-                            break;
-                        }
-                    }
-                }
+                let dbR = dataArray[binR];
+                let dbG = dataArray[binG];
+                let dbB = dataArray[binB];
+
+                // Convert Decibels to RGB Pixel Brightness
+                let valR = Math.max(0, Math.min(255, ((dbR - minDb) / dbRange) * 255));
+                let valG = Math.max(0, Math.min(255, ((dbG - minDb) / dbRange) * 255));
+                let valB = Math.max(0, Math.min(255, ((dbB - minDb) / dbRange) * 255));
+
+                newCol.data[y*4 + 0] = valR;
+                newCol.data[y*4 + 1] = valG;
+                newCol.data[y*4 + 2] = valB;
+                newCol.data[y*4 + 3] = 255; // Alpha solid
             }
 
-            if (headerFound) {
-                let requiredBits = rxPayloadStart + rxPayloadLen * 8;
-                let progress = Math.min(100, (rxBitBuffer.length / requiredBits) * 100);
-                document.getElementById('rxProgress').style.width = progress + "%";
-                
-                if (rxBitBuffer.length >= requiredBits) {
-                    let bytes = new Uint8Array(rxPayloadLen);
-                    for(let byteIdx=0; byteIdx < rxPayloadLen; byteIdx++) {
-                        let b = 0;
-                        for(let bit=0; bit<8; bit++) b |= (rxBitBuffer[rxPayloadStart + byteIdx*8 + bit] << bit);
-                        bytes[byteIdx] = b;
-                    }
-                    
-                    let blob = new Blob([bytes], {type: 'image/jpeg'});
-                    document.getElementById('rxImg').src = URL.createObjectURL(blob);
-                    document.getElementById('rxStatus').innerText = "File Received Successfully!";
-                    
-                    // Reset for next transfer
-                    rxBitBuffer = [];
-                    headerFound = false;
-                    lastSeq = -1;
-                }
-            }
+            rxCtx.putImageData(newCol, rxCanvas.width - 1, 0);
         }
     </script>
 </body>
