@@ -9,10 +9,10 @@
             --bg-color: #121212;
             --panel-bg: #1e1e1e;
             --text-color: #e0e0e0;
-            --accent: #00ff88;
+            --accent: #00e5ff;
         }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-color);
             margin: 0;
@@ -21,8 +21,8 @@
             flex-direction: column;
             align-items: center;
         }
-        h1 { margin-top: 0; text-align: center; }
-        p { text-align: center; max-width: 600px; color: #aaa; }
+        h1 { margin-top: 0; text-align: center; color: var(--accent); }
+        p { text-align: center; max-width: 600px; color: #aaa; margin-bottom: 20px; }
         .container {
             display: flex;
             flex-wrap: wrap;
@@ -30,31 +30,31 @@
             max-width: 900px;
             width: 100%;
             justify-content: center;
-            margin-top: 20px;
         }
         .panel {
             background-color: var(--panel-bg);
             border-radius: 12px;
             padding: 20px;
             flex: 1;
-            min-width: 300px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            min-width: 320px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
-        .panel h2 { margin-top: 0; color: var(--accent); border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .panel h2 { margin-top: 0; color: var(--text-color); border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 1.2rem; }
         input[type="file"] {
             background: #2a2a2a;
             padding: 10px;
             border-radius: 6px;
             outline: none;
+            color: #fff;
         }
         button {
             background-color: var(--accent);
             color: #000;
             border: none;
-            padding: 12px;
+            padding: 14px;
             font-size: 16px;
             font-weight: bold;
             border-radius: 6px;
@@ -62,15 +62,16 @@
             transition: opacity 0.2s;
         }
         button:hover { opacity: 0.8; }
-        button:disabled { background-color: #555; color: #888; cursor: not-allowed; }
+        button:disabled { background-color: #444; color: #777; cursor: not-allowed; }
         canvas {
             width: 100%;
             background-color: #000;
             border: 2px solid #333;
             border-radius: 6px;
-            image-rendering: pixelated; /* Keeps the transmission crisp */
-            max-height: 200px;
-            object-fit: contain;
+            image-rendering: pixelated;
+        }
+        #rxCanvas {
+            height: 250px; /* Make receiver canvas taller to see clearly */
         }
         .status {
             font-family: monospace;
@@ -78,44 +79,46 @@
             padding: 10px;
             border-radius: 4px;
             color: var(--accent);
-            min-height: 20px;
+            text-align: center;
         }
+        .warning { color: #ff5555; font-size: 0.9em; text-align: center; }
     </style>
 </head>
 <body>
 
     <h1>Acoustic Image Transfer</h1>
-    <p>Transmit an image across the air using sound waves. Open this page on two devices. Set one to listen, and the other to send!</p>
+    <p>Transmit an image across the air using sound waves. Set one device to <b>Listen</b>, then <b>Upload and Play</b> on the other.</p>
 
     <div class="container">
-        <!-- SENDER PANEL -->
-        <div class="panel" id="senderPanel">
-            <h2>1. Sender (Device 1)</h2>
-            <input type="file" id="imageInput" accept="image/*">
-            <canvas id="txCanvas"></canvas>
-            <button id="playBtn" disabled>Play / Send Image</button>
-            <div class="status" id="txStatus">Status: Waiting for image...</div>
-        </div>
-
         <!-- RECEIVER PANEL -->
         <div class="panel" id="receiverPanel">
-            <h2>2. Receiver (Device 2)</h2>
+            <h2>📡 1. Receiver (Listening Device)</h2>
+            <div class="warning">Do this first! Allow microphone access.</div>
             <button id="listenBtn">Start Listening</button>
-            <canvas id="rxCanvas"></canvas>
+            <button id="clearBtn" style="background-color: #555; color: white;">Clear Screen</button>
+            <canvas id="rxCanvas" width="600" height="150"></canvas>
             <div class="status" id="rxStatus">Status: Inactive</div>
+        </div>
+
+        <!-- SENDER PANEL -->
+        <div class="panel" id="senderPanel">
+            <h2>🔊 2. Sender (Playing Device)</h2>
+            <div class="warning">Turn your volume to MAX. Turn off Silent Mode.</div>
+            <input type="file" id="imageInput" accept="image/*">
+            <canvas id="txCanvas" height="150"></canvas>
+            <button id="playBtn" disabled>Play / Send Image</button>
+            <div class="status" id="txStatus">Status: Waiting for image...</div>
         </div>
     </div>
 
     <script>
-        // --- Shared Constants ---
-        const S_RATE = 44100;
-        const FFT_SIZE = 2048;
-        const START_BIN = 100;  // ~2153 Hz
-        const NUM_BINS = 150;   // 150 vertical pixels (up to ~5383 Hz)
-        const SYNC_BIN = 320;   // ~6890 Hz (Start/Stop marker)
-        const COL_DUR = 0.02;   // 20ms per horizontal pixel column
-        
-        // --- Sender Logic ---
+        // --- Shared Frequencies (Ensures mismatch hardware works) ---
+        const MIN_FREQ = 1500; // Bottom of image (Hz)
+        const MAX_FREQ = 6500; // Top of image (Hz)
+        const IMG_HEIGHT = 100; // Vertical resolution
+        const COL_DUR = 0.03;   // Seconds per horizontal pixel (30ms)
+
+        // --- SENDER LOGIC ---
         const txCanvas = document.getElementById('txCanvas');
         const txCtx = txCanvas.getContext('2d', { willReadFrequently: true });
         let imgDataArray = null;
@@ -129,28 +132,29 @@
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
-                    // Resize to match our frequency bins (height = 150)
+                    // Scale image to standard height
                     const aspect = img.width / img.height;
-                    imgWidth = Math.min(400, Math.round(NUM_BINS * aspect)); 
+                    imgWidth = Math.min(300, Math.round(IMG_HEIGHT * aspect)); 
                     txCanvas.width = imgWidth;
-                    txCanvas.height = NUM_BINS;
                     
-                    // Draw and extract pixel data
-                    txCtx.drawImage(img, 0, 0, imgWidth, NUM_BINS);
-                    const idata = txCtx.getImageData(0, 0, imgWidth, NUM_BINS).data;
+                    // Draw to canvas and extract grayscale pixels
+                    txCtx.drawImage(img, 0, 0, imgWidth, IMG_HEIGHT);
+                    const idata = txCtx.getImageData(0, 0, imgWidth, IMG_HEIGHT).data;
                     
                     imgDataArray = [];
                     for(let x = 0; x < imgWidth; x++) {
-                        imgDataArray[x] = new Float32Array(NUM_BINS);
-                        for(let y = 0; y < NUM_BINS; y++) {
+                        imgDataArray[x] = new Float32Array(IMG_HEIGHT);
+                        for(let y = 0; y < IMG_HEIGHT; y++) {
                             let idx = (y * imgWidth + x) * 4;
                             let r = idata[idx], g = idata[idx+1], b = idata[idx+2];
-                            // Convert to grayscale and normalize brightness
-                            imgDataArray[x][y] = (r + g + b) / (3 * 255.0);
+                            // Highest contrast grayscale
+                            let brightness = (r + g + b) / (3 * 255.0);
+                            // Boost contrast so quiet pixels are truly quiet
+                            imgDataArray[x][y] = brightness < 0.1 ? 0 : brightness;
                         }
                     }
                     document.getElementById('playBtn').disabled = false;
-                    document.getElementById('txStatus').innerText = "Status: Image loaded. Ready to send.";
+                    document.getElementById('txStatus').innerText = `Image loaded (${imgWidth}x${IMG_HEIGHT}). Ready to send.`;
                 };
                 img.src = event.target.result;
             };
@@ -159,50 +163,42 @@
 
         document.getElementById('playBtn').addEventListener('click', async () => {
             if (!imgDataArray) return;
-            if (!txAudioCtx) txAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: S_RATE });
+            
+            // Initialize AudioContext using the device's native sample rate
+            if (!txAudioCtx) txAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (txAudioCtx.state === 'suspended') await txAudioCtx.resume();
 
             document.getElementById('playBtn').disabled = true;
-            document.getElementById('txStatus').innerText = "Status: Generating audio...";
+            document.getElementById('txStatus').innerText = "Generating sound...";
 
-            // Use setTimeout to allow UI to update before heavy computation
             setTimeout(() => {
-                const totalDur = 0.5 + 0.1 + (imgWidth * COL_DUR) + 0.5;
+                const S_RATE = txAudioCtx.sampleRate;
+                const totalDur = (imgWidth * COL_DUR);
                 const buffer = txAudioCtx.createBuffer(1, totalDur * S_RATE, S_RATE);
                 const data = buffer.getChannelData(0);
 
-                const syncFreq = SYNC_BIN * (S_RATE / FFT_SIZE);
-                const syncOmega = 2 * Math.PI * syncFreq / S_RATE;
-
-                // 1. Generate Start Sync Tone (0.5s)
-                let phase = 0;
-                for(let i = 0; i < 0.5 * S_RATE; i++) {
-                    data[i] = Math.sin(phase) * 0.5;
-                    phase += syncOmega;
-                }
-
-                // 2. Generate Image Audio
-                let startSample = Math.floor(0.6 * S_RATE);
-                let phases = new Float32Array(NUM_BINS);
-                let omegas = new Float32Array(NUM_BINS);
-                
-                // Precompute frequencies mapping to Y-axis
-                for(let y = 0; y < NUM_BINS; y++) {
-                    let freq = (START_BIN + NUM_BINS - 1 - y) * (S_RATE / FFT_SIZE);
+                // Precompute frequencies for each Y row
+                let omegas = new Float32Array(IMG_HEIGHT);
+                for(let y = 0; y < IMG_HEIGHT; y++) {
+                    // Top of image (y=0) gets MAX_FREQ. Bottom gets MIN_FREQ.
+                    let freq = MAX_FREQ - (y / IMG_HEIGHT) * (MAX_FREQ - MIN_FREQ);
                     omegas[y] = 2 * Math.PI * freq / S_RATE;
                 }
 
-                // Build spectrogram
+                let phases = new Float32Array(IMG_HEIGHT);
+
+                // Build Spectrogram
                 for(let x = 0; x < imgWidth; x++) {
-                    let idxStart = startSample + Math.floor(x * COL_DUR * S_RATE);
-                    let idxEnd = startSample + Math.floor((x + 1) * COL_DUR * S_RATE);
+                    let idxStart = Math.floor(x * COL_DUR * S_RATE);
+                    let idxEnd = Math.floor((x + 1) * COL_DUR * S_RATE);
                     
-                    for(let y = 0; y < NUM_BINS; y++) {
+                    for(let y = 0; y < IMG_HEIGHT; y++) {
                         let amp = imgDataArray[x][y];
-                        if (amp < 0.02) {
+                        if (amp === 0) {
                             phases[y] += omegas[y] * (idxEnd - idxStart);
                             continue;
                         }
+                        
                         let p = phases[y];
                         let w = omegas[y];
                         for(let i = idxStart; i < idxEnd; i++) {
@@ -213,136 +209,111 @@
                     }
                 }
 
-                // 3. Generate End Sync Tone (0.5s)
-                let endStart = startSample + Math.floor(imgWidth * COL_DUR * S_RATE);
-                phase = 0;
-                for(let i = endStart; i < endStart + 0.5 * S_RATE; i++) {
-                    data[i] = Math.sin(phase) * 0.5;
-                    phase += syncOmega;
-                }
-
-                // Normalize audio volume to prevent clipping and maximize loudness
+                // Normalize volume to maximum safe level
                 let maxAmp = 0;
                 for(let i = 0; i < data.length; i++) maxAmp = Math.max(maxAmp, Math.abs(data[i]));
                 if (maxAmp > 0) {
-                    for(let i = 0; i < data.length; i++) data[i] = (data[i] / maxAmp) * 0.9;
+                    for(let i = 0; i < data.length; i++) data[i] = (data[i] / maxAmp) * 0.95;
                 }
 
-                document.getElementById('txStatus').innerText = "Status: Transmitting... (Turn volume UP)";
+                document.getElementById('txStatus').innerText = "Transmitting! (Turn volume up)";
                 
-                // Play
+                // Play Audio
                 const source = txAudioCtx.createBufferSource();
                 source.buffer = buffer;
                 source.connect(txAudioCtx.destination);
                 source.onended = () => {
                     document.getElementById('playBtn').disabled = false;
-                    document.getElementById('txStatus').innerText = "Status: Transfer complete.";
+                    document.getElementById('txStatus').innerText = "Transfer complete.";
                 };
                 source.start();
             }, 50);
         });
 
-        // --- Receiver Logic ---
+        // --- RECEIVER LOGIC (Waterfall Spectrogram) ---
         let rxAudioCtx, analyser, dataArray;
-        let rxState = 'IDLE'; 
-        let syncTimer = 0;
-        let canvasX = 0;
-        
         const rxCanvas = document.getElementById('rxCanvas');
         const rxCtx = rxCanvas.getContext('2d');
-        rxCanvas.width = 400;
-        rxCanvas.height = NUM_BINS;
+        const FFT_SIZE = 4096; // High resolution
+
+        // Fill canvas with black initially
+        rxCtx.fillStyle = "black";
+        rxCtx.fillRect(0, 0, rxCanvas.width, rxCanvas.height);
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            rxCtx.fillStyle = "black";
+            rxCtx.fillRect(0, 0, rxCanvas.width, rxCanvas.height);
+        });
 
         document.getElementById('listenBtn').addEventListener('click', async () => {
             try {
-                // Disable processing applied by default to voice mics to receive raw audio
+                // Request mic. Disable voice enhancements so it doesn't filter out the data tones!
                 const stream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
                 });
                 
-                rxAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: S_RATE });
+                // Use native sample rate
+                rxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const source = rxAudioCtx.createMediaStreamSource(stream);
                 
                 analyser = rxAudioCtx.createAnalyser();
                 analyser.fftSize = FFT_SIZE;
-                analyser.smoothingTimeConstant = 0.0; // Essential for crisp images
+                analyser.smoothingTimeConstant = 0.2; // Slight smooth to connect pixels
                 source.connect(analyser);
 
                 dataArray = new Float32Array(analyser.frequencyBinCount);
 
                 document.getElementById('listenBtn').disabled = true;
                 document.getElementById('listenBtn').innerText = "Listening...";
-                document.getElementById('rxStatus').innerText = "Status: Listening for sync tone...";
+                document.getElementById('rxStatus').innerText = "Listening... Play audio on the other device!";
 
-                requestAnimationFrame(rxLoop);
+                requestAnimationFrame(drawWaterfall);
             } catch(e) {
-                alert("Microphone access is required. Ensure you are on HTTPS or localhost. Error: " + e.message);
+                alert("Microphone access is required. Error: " + e.message);
             }
         });
 
-        function rxLoop() {
+        // Waterfall drawing loop
+        function drawWaterfall() {
             if (!analyser) return;
             analyser.getFloatFrequencyData(dataArray);
 
-            // Check the sync bin and adjacent bins for the 6.8kHz tone
-            let syncVol = Math.max(dataArray[SYNC_BIN-1], dataArray[SYNC_BIN], dataArray[SYNC_BIN+1]);
-            const THRESHOLD = -45; // Decibel threshold
+            const S_RATE = rxAudioCtx.sampleRate;
+            const binWidth = S_RATE / FFT_SIZE;
 
-            if (rxState === 'IDLE') {
-                if (syncVol > THRESHOLD) {
-                    syncTimer++;
-                    if (syncTimer > 5) { // Needs to be sustained slightly
-                        rxState = 'SYNCING';
-                        document.getElementById('rxStatus').innerText = "Status: Sync tone detected. Locking on...";
-                    }
-                } else {
-                    syncTimer = 0;
-                }
-            } 
-            else if (rxState === 'SYNCING') {
-                if (syncVol < THRESHOLD - 10) { 
-                    // Sync tone dropped, image payload is beginning
-                    rxState = 'RECEIVING';
-                    canvasX = 0;
-                    rxCtx.clearRect(0, 0, rxCanvas.width, rxCanvas.height);
-                    document.getElementById('rxStatus').innerText = "Status: Receiving image payload...";
-                }
-            } 
-            else if (rxState === 'RECEIVING') {
-                if (syncVol > THRESHOLD) { 
-                    // Found the ending sync tone
-                    rxState = 'IDLE';
-                    syncTimer = 0;
-                    document.getElementById('rxStatus').innerText = "Status: Transfer Complete!";
-                } else {
-                    // Read frequency volumes and map them to image pixels
-                    let imgData = rxCtx.createImageData(1, NUM_BINS);
-                    const MIN_DB = -80;
-                    const MAX_DB = -25;
-                    
-                    for(let y = 0; y < NUM_BINS; y++) {
-                        let db = dataArray[START_BIN + NUM_BINS - 1 - y];
-                        let val = Math.max(0, Math.min(255, ((db - MIN_DB) / (MAX_DB - MIN_DB)) * 255));
-                        
-                        // Tint output terminal green for style
-                        imgData.data[y*4 + 0] = 0;        // R
-                        imgData.data[y*4 + 1] = val;      // G
-                        imgData.data[y*4 + 2] = val / 4;  // B
-                        imgData.data[y*4 + 3] = 255;      // A
-                    }
-                    
-                    rxCtx.putImageData(imgData, canvasX, 0);
-                    canvasX++;
-                    
-                    if (canvasX >= rxCanvas.width) {
-                        // Expand canvas dynamically if image is wider
-                        const oldData = rxCtx.getImageData(0, 0, rxCanvas.width, rxCanvas.height);
-                        rxCanvas.width += 100;
-                        rxCtx.putImageData(oldData, 0, 0);
-                    }
-                }
+            // Shift canvas left by 1 pixel
+            const imgData = rxCtx.getImageData(1, 0, rxCanvas.width - 1, rxCanvas.height);
+            rxCtx.putImageData(imgData, 0, 0);
+
+            // Draw new column on the far right edge
+            let newCol = rxCtx.createImageData(1, rxCanvas.height);
+            
+            // Map the frequencies dynamically based on device's exact sample rate
+            const minDb = -85; // Lower boundary (noise floor)
+            const maxDb = -35; // Upper boundary (loud tone)
+
+            for(let y = 0; y < rxCanvas.height; y++) {
+                // Map screen Y to specific frequency
+                let freq = MAX_FREQ - (y / rxCanvas.height) * (MAX_FREQ - MIN_FREQ);
+                
+                // Find which FFT bin holds this frequency
+                let binIndex = Math.round(freq / binWidth);
+                let db = dataArray[binIndex];
+
+                // Calculate brightness based on volume of that exact frequency
+                let val = Math.max(0, Math.min(255, ((db - minDb) / (maxDb - minDb)) * 255));
+                
+                // Draw as cyan/blue color profile for good visibility
+                newCol.data[y*4 + 0] = val * 0.2; // R
+                newCol.data[y*4 + 1] = val;       // G
+                newCol.data[y*4 + 2] = val;       // B
+                newCol.data[y*4 + 3] = 255;       // Alpha
             }
-            requestAnimationFrame(rxLoop);
+
+            // Put the newly generated column on the right edge
+            rxCtx.putImageData(newCol, rxCanvas.width - 1, 0);
+
+            requestAnimationFrame(drawWaterfall);
         }
     </script>
 </body>
